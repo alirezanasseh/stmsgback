@@ -9,7 +9,7 @@ let login = require('./api/login');
 let upload = require('./api/upload');
 let download = require('./api/download');
 let api = require('./components/api');
-require('./config');
+let {IP, PORT} = require('./config');
 
 global.server = `http://${IP}:${PORT}/`;
 
@@ -21,7 +21,7 @@ app.use('/upload', upload);
 app.use('/download', download);
 app.use(['/users', '/countries', '/cities', '/messages', '/permissions', '/sessions', '/sockets'], api);
 
-server.listen(port, () => console.log(`Server is running on port ${port}`));
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 
 io.on('connection', (socket) => {
     let token = socket.handshake.query.token;
