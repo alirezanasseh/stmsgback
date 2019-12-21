@@ -21,6 +21,8 @@ For starting project run
 ```bash
 npm start
 ```
+## Next Step
+Now you must clone Startup Messenger frontend project from [here](https://github.com/alirezanasseh/stmsgfront).
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 ## License
