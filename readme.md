@@ -16,6 +16,11 @@ npm install
 let IP = '192.168.1.27';
 let PORT = 8000;
 ```
+## Start Project
+For starting project run
+```bash
+npm start
+```
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 ## License
