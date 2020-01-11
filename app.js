@@ -11,7 +11,8 @@ let download = require('./api/download');
 let api = require('./components/api');
 let {IP, PORT} = require('./config');
 
-global.server = `http://${IP}:${PORT}/`;
+// global.server = `http://${IP}:${PORT}/`;
+global.server = `http://messenger-back.liara.run/`;
 
 app.use(cors());
 app.use(express.json());

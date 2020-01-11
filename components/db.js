@@ -1,6 +1,6 @@
 const MongoClient = require('mongodb').MongoClient;
 const {ObjectId} = require('mongodb');
-const url = "mongodb://localhost:27017/";
+const url = "mongodb://root:xvTEl4LiGTSyDztVDUGHdDHW@s7.liara.ir:32317/my-app?authSource=admin";
 const database = "smsg";
 
 module.exports = class DB {
