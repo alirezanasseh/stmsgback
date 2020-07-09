@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 let express = require('express');
 let app = express();
 let server = require('http').Server(app);
@@ -10,6 +12,8 @@ let upload = require('./api/upload');
 let download = require('./api/download');
 let api = require('./components/api');
 let {IP, PORT} = require('./config');
+let moment = require('moment');
+let fs = require('fs');
 
 global.server = `http://${IP}:${PORT}/`;
 
@@ -19,9 +23,43 @@ app.use('/register', register);
 app.use('/login', login);
 app.use('/upload', upload);
 app.use('/download', download);
-app.use(['/users', '/countries', '/cities', '/messages', '/permissions', '/sessions', '/sockets'], api);
+app.use(['/users', '/messages', '/permissions', '/sessions'], api);
 
 server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+
+let saveMessage = props => {
+    let {data, userResult} = props;
+    let messageData = {
+        chat_id: data.chat_id,
+        sender_id: userResult._id,
+        sender_name: userResult.name,
+        message: data.message,
+    };
+    if(data.file_id){
+        messageData.file_id = data.file_id;
+        messageData.file_name = data.file_name;
+    }
+    let msgModel = require('./models/messages').model({token: data.token});
+    msgModel.post(messageData, (err, insertMsg) => {
+        if(err){
+            fs.appendFile('logs.txt', JSON.stringify(err), err => {
+                console.log(err);
+            });
+            //TODO: emit error to client
+        }else{
+            let resultMsg = {
+                sender_name: userResult.name,
+                message: data.message,
+                local_index: data.local_index
+            };
+            if(data.file_id){
+                resultMsg.file_id = data.file_id;
+                resultMsg.file_name = data.file_name;
+            }
+            io.emit('RECEIVE_MESSAGE', resultMsg);
+        }
+    });
+};
 
 io.on('connection', (socket) => {
     let token = socket.handshake.query.token;
@@ -29,41 +67,14 @@ io.on('connection', (socket) => {
         let sessionModel = require('./models/sessions').model({token: token, noAccessCheck: true});
         sessionModel.getOneByCondition({token: token}, (err, sesResult) => {
             if(err){
-                console.log("app.js:32", err)
+                fs.appendFile('logs.txt', JSON.stringify(err), err => {
+                    console.log(err);
+                });
             }else{
-                if(sesResult){
-                    let socketModel = require('./models/sockets').model({token: token, noAccessCheck: true});
-                    socketModel.getOneByCondition({token: token}, (err, socketResult) => {
-                        if(err){
-                            console.log("app.js:38", err);
-                        }else{
-                            if(socketResult){
-                                socketResult.socket_id = socket.id;
-                                socketModel.put(socketResult, (err, updateResult) => {
-                                    if(err){
-                                        console.log("app.js:44", err);
-                                    }else{
-                                        // Socket updated!
-                                    }
-                                });
-                            }else{
-                                let socketData = {
-                                    socket_id: socket.id,
-                                    token: token,
-                                    user_id: sesResult.user_id
-                                };
-                                socketModel.post(socketData, (err, insertResult) => {
-                                    if(err){
-                                        console.log("app.js:57", err);
-                                    }else{
-                                        // Socket saved!
-                                    }
-                                });
-                            }
-                        }
+                if(!sesResult){
+                    fs.appendFile('logs.txt', "Token not found", err => {
+                        console.log(err);
                     });
-                }else{
-                    console.log("app.js:66 - Token not found!");
                 }
             }
         });
@@ -72,33 +83,32 @@ io.on('connection', (socket) => {
     socket.on('SEND_MESSAGE', data => {
         validateToken(data.token, (err, userResult) => {
             if(err){
-                console.log("app.js:75", err);
+                fs.appendFile('logs.txt', "token : " + JSON.stringify(err), err => {
+                    console.log(err);
+                });
+                //TODO: emit error to client
             }else{
-                let messageData = {
-                    chat_id: -1,
-                    sender_id: userResult._id,
-                    sender_name: userResult.name,
-                    message: data.message,
-                };
-                if(data.file_id){
-                    messageData.file_id = data.file_id;
-                    messageData.file_name = data.file_name;
-                }
-                let msgModel = require('./models/messages').model({token: data.token});
-                msgModel.post(messageData, (err, insertMsg) => {
+                // Checking if the user is in this chat
+                let chatModel = require('./models/chats').model({noAccessCheck: true});
+                chatModel.getOneByCondition({
+                    _id: data.chat_id,
+                    users: {$in: [userResult._id]}
+                }, (err, chatResult) => {
                     if(err){
-                        console.log("app.js:90", err);
+                        fs.appendFile('logs.txt', "search user in chat : " + JSON.stringify(err), err => {
+                            console.log(err);
+                        });
+                        //TODO: emit error to client
                     }else{
-                        let resultMsg = {
-                            sender_name: userResult.name,
-                            message: data.message,
-                            local_index: data.local_index
-                        };
-                        if(data.file_id){
-                            resultMsg.file_id = data.file_id;
-                            resultMsg.file_name = data.file_name;
+                        if(chatResult) {
+                            saveMessage({data, userResult});
+                        }else{
+                            err = `user ${userResult._id} is not in chat ${chatResult._id}`;
+                            fs.appendFile('logs.txt', err, err => {
+                                console.log(err);
+                            });
+                            //TODO: emit error to client
                         }
-                        io.emit('RECEIVE_MESSAGE', resultMsg);
                     }
                 });
             }
